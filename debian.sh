@@ -19,14 +19,7 @@ fi
 
 
 # Update version numbers automatically - so you don't have to
-sed -i 's/VERSION='${PREV_VERSION}'/VERSION='${VERSION}'/g' Makefile rpm.sh arch.sh puppy.sh ebuild.sh slack.sh
-sed -i 's/Version: '${PREV_VERSION}'/Version: '${VERSION}'/g' rpmpackage/${APP}.spec
-sed -i 's/Release: '${RELEASE}'/Release: '${RELEASE}'/g' rpmpackage/${APP}.spec
-sed -i 's/pkgrel='${RELEASE}'/pkgrel='${RELEASE}'/g' archpackage/PKGBUILD
-sed -i 's/pkgver='${PREV_VERSION}'/pkgver='${VERSION}'/g' archpackage/PKGBUILD
-sed -i "s/-${PREV_VERSION}-/-${VERSION}-/g" puppypackage/*.specs
-sed -i "s/|${PREV_VERSION}|/|${VERSION}|/g" puppypackage/*.specs
-sed -i 's/VERSION='${PREV_VERSION}'/VERSION='${VERSION}'/g' puppypackage/pinstall.sh puppypackage/puninstall.sh
+sed -i 's/VERSION='${PREV_VERSION}'/VERSION='${VERSION}'/g' Makefile
 sed -i 's/-'${PREV_VERSION}'.so/-'${VERSION}'.so/g' debian/*.links
 
 make clean
@@ -37,13 +30,31 @@ mv ../${APP} ../${DIR}
 
 # Create a source archive
 make source
+if [ ! "$?" = "0" ]; then
+    mv ../${DIR} ../${APP}
+    exit 2
+fi
 
 # Build the package
-dpkg-buildpackage -F
+dpkg-buildpackage -i -F
+if [ ! "$?" = "0" ]; then
+    mv ../${DIR} ../${APP}
+    exit 3
+fi
 
 # sign files
-gpg -ba ../${APP}_${VERSION}-1_${ARCH_TYPE}.deb
-gpg -ba ../${APP}_${VERSION}.orig.tar.gz
+#gpg -ba ../${APP}_${VERSION}-1_${ARCH_TYPE}.deb
+#gpg -ba ../${APP}_${VERSION}.orig.tar.gz
 
 # restore the parent directory name
 mv ../${DIR} ../${APP}
+
+if [ ! -f ../${APP}0_${VERSION}-${RELEASE}_${ARCH_TYPE}.deb ]; then
+    echo "Failed to build ../${APP}0_${VERSION}-${RELEASE}_${ARCH_TYPE}.deb"
+    exit 1
+fi
+
+echo 'Running lintian checks...'
+lintian ../${APP}0_${VERSION}-${RELEASE}_${ARCH_TYPE}.deb
+
+echo 'Build complete'
